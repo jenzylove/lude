@@ -20,6 +20,7 @@ npm run build    # TypeScript checks + production client
 npm start        # Serve production client and WebSocket on http://127.0.0.1:3001
 npm test         # Deterministic combat + real server + persistence tests
 node tests/playtest.mjs # Real Edge input-driven duel and two-client verification; dev server must be running
+node tests/production.mjs # Built client, isolated server, audio, reconnect and persistence verification
 ```
 
 Browser tests use locally installed Microsoft Edge; install Edge or change Playwright's channel to an available Chromium browser. Screenshots and measured results go into ignored `test-results/`.
@@ -47,7 +48,7 @@ Only an assigned-target elimination gives **100 contract score**. Other eliminat
 - `src/shared/controllers.ts`: imperfect, delayed AI intent; uses the same command path as human input.
 - `server/index.ts`: 60 Hz authoritative rooms, 20 Hz personalized snapshots, input validation and bot replacement.
 - `server/profiles.ts`: private device-token identity, lifetime contract/death counters and bounded human encounter history; atomic local-file persistence.
-- `src/client/`: local/network session transport and original procedural 2.5D rendering.
+- `src/client/`: local/network session transport, arena-presentation registry and original procedural 2.5D rendering.
 
 ## Persistence and limits
 

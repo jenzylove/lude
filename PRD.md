@@ -1,5 +1,7 @@
 # Lude — Product Definition
 
+> **Active scope amendment — September 5, 2026:** The user explicitly authorized continuing beyond the original Milestone 1 ceiling after verifying its combat foundation: shared character/controllers and arena interfaces, realtime bot-filled Hitlist rooms, private contracts and reassignment, then a persistent player-state foundation. The original milestone sections below remain product history. See `DEVELOPMENT.md` for implementation and measured verification. Real AI lifecycle integration has not been added.
+
 ## Product thesis
 
 **Lude turns the dead time between an AI request and its response into a fast social combat experience people may actually look forward to entering.**

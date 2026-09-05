@@ -8,13 +8,13 @@ Before making material changes, read `PRD.md` completely.
 
 ## Current milestone
 
-The active milestone is **Milestone 1 — Combat Prototype**.
+The original **Milestone 1 — Combat Prototype** is the verified foundation. The user's September 5 follow-up explicitly expanded the active scope to shared arena/character/controller abstractions, realtime bot-filled Hitlist rooms, private contract scoring/reassignment, and persistent player-state foundations. See `DEVELOPMENT.md` and the scope amendment in `PRD.md`.
 
 The only product question to answer is:
 
 > Is the fighting enjoyable enough that a user voluntarily wants another round?
 
-Do not implement multiplayer, persistence, AI waiting integration, Commons publication, leaderboards, accounts, multiple weapons, cosmetics, or other later-stage features during this milestone.
+Multiplayer and persistent-state foundations are now authorized and implemented. Do not silently add AI waiting integration, Commons publication, leaderboards, accounts, multiple weapons or cosmetics. Preserve and verify the working combat and two-client loop before further expansion.
 
 ## Operating rule
 
@@ -108,4 +108,4 @@ When Milestone 1 is finished, stop and report compactly:
 
 **MILESTONE 1 READY FOR HUMAN REVIEW: YES/NO**
 
-Do not proceed to Milestone 2 without a new explicit instruction.
+The explicit September 5 scope expansion authorizes the implemented Hitlist increment. Further expansion still requires clear user direction; do not infer a requirement to finish all later milestones.
