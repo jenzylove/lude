@@ -1,87 +1,36 @@
-import { chromium } from "@playwright/test";
-import assert from "node:assert/strict";
-import fs from "node:fs";
-const browser = await chromium.launch({ channel: "msedge", headless: true });
-const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
-const errors = [];
-page.on("pageerror", (e) => errors.push(e.message));
-await page.goto("http://127.0.0.1:5173");
-await page.waitForFunction(() => window.__arena);
-const state = () =>
-  page.evaluate(() => {
-    let a = window.__arena;
-    return {
-      p: { ...a.p },
-      b: { ...a.b },
-      metrics: { ...a.metrics },
-      round: a.round,
-    };
-  });
-await page.keyboard.down("KeyW");
-await page.waitForTimeout(300);
-await page.keyboard.up("KeyW");
-assert((await state()).p.y < 320, "movement");
-await page.keyboard.press("Space", { delay: 40 });
-await page.waitForTimeout(180);
-assert((await state()).metrics.dashes > 0, "dash input");
-// Real-time input-driven duel. Read positions to aim; no health/state writes.
-const start = Date.now();
-let lastAttack = 0,
-  lastParry = 0;
-const rounds = [];
-let previous = 1,
-  roundStart = start;
-while (Date.now() - start < 32000) {
-  const s = await state();
-  const box = await page.locator("canvas").boundingBox();
-  await page.mouse.move(
-    box.x + (s.b.x * box.width) / 1100,
-    box.y + (s.b.y * box.height) / 680,
-  );
-  const dx = s.b.x - s.p.x,
-    dy = s.b.y - s.p.y,
-    d = Math.hypot(dx, dy);
-  for (const [key, on] of [
-    ["KeyD", d > 78 && dx > 15],
-    ["KeyA", d > 78 && dx < -15],
-    ["KeyS", d > 78 && dy > 15],
-    ["KeyW", d > 78 && dy < -15],
-  ])
-    await page.keyboard[on ? "down" : "up"](key);
-  if (s.b.phase === "wind" && d < 108 && Date.now() - lastParry > 900) {
-    await page.keyboard.press("KeyE", { delay: 40 });
-    lastParry = Date.now();
-  } else if (d < 90 && Date.now() - lastAttack > 660) {
-    await page.mouse.click(
-      box.x + (s.b.x * box.width) / 1100,
-      box.y + (s.b.y * box.height) / 680,
-    );
-    lastAttack = Date.now();
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const browser=await chromium.launch({channel:'msedge',headless:true});
+const errors=[];
+async function client(url){const context=await browser.newContext({viewport:{width:1440,height:960}}),page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(url);await page.waitForFunction(()=>window.__lude?.snapshot);return {context,page};}
+const read=page=>page.evaluate(()=>({snapshot:window.__lude.snapshot,metrics:window.__lude.metrics,status:window.__lude.status}));
+function project(p){return {x:640+(p.x-480)*.90-(p.y-320)*.43,y:405+(p.x-480)*.21+(p.y-320)*.69};}
+async function drive(page,ms){
+  const box=await page.locator('canvas').boundingBox(),held=new Set();let actionAt=0,parryAt=0,lastRound=0,lastDeath=Date.now();const rounds=[];const end=Date.now()+ms;
+  while(Date.now()<end){const {snapshot:s}=await read(page),p=s.fighters.find(f=>f.id===s.you);const threat=s.fighters.find(f=>f.id!==p.id&&f.hp>0&&f.phase==='wind'&&Math.hypot(f.x-p.x,f.y-p.y)<100);const target=threat??s.fighters.find(f=>f.id===s.target&&f.hp>0)??s.fighters.find(f=>f.id!==p.id&&f.hp>0);if(!target){await page.waitForTimeout(40);continue;}
+    const a=project(p),b=project(target),distance=Math.hypot(target.x-p.x,target.y-p.y);await page.mouse.move(box.x+b.x*box.width/1280,box.y+b.y*box.height/820);
+    for(const [key,on]of [['KeyD',distance>77&&b.x-a.x>12],['KeyA',distance>77&&b.x-a.x< -12],['KeyS',distance>77&&b.y-a.y>10],['KeyW',distance>77&&b.y-a.y< -10]]){if(on&&!held.has(key)){await page.keyboard.down(key);held.add(key);}else if(!on&&held.has(key)){await page.keyboard.up(key);held.delete(key);}}
+    if(threat&&p.phase==='idle'&&p.parryCd<=0&&Date.now()-parryAt>900){await page.keyboard.press('KeyE',{delay:25});parryAt=Date.now();}
+    else if(p.phase==='idle'&&distance<85&&p.strikeCd<=0&&Date.now()-actionAt>700){await page.keyboard.press('KeyJ',{delay:25});actionAt=Date.now();}
+    if(p.deaths>lastRound){rounds.push((Date.now()-lastDeath)/1000);lastDeath=Date.now();lastRound=p.deaths;}
+    await page.waitForTimeout(25);
   }
-  if (s.round !== previous) {
-    rounds.push((Date.now() - roundStart) / 1000);
-    roundStart = Date.now();
-    previous = s.round;
-  }
-  await page.waitForTimeout(35);
+  for(const key of held)await page.keyboard.up(key);return rounds;
 }
-for (const key of ["KeyW", "KeyA", "KeyS", "KeyD"]) await page.keyboard.up(key);
-const combat = await state();
-assert(combat.metrics.hits > 0, "combat damage");
-// Idle player must be killable and return immediately to another duel.
-await page.waitForTimeout(14000);
-const final = await state();
-assert(final.metrics.playerDeaths > 0, "player death");
-assert(final.metrics.rounds > 0, "respawn");
-assert.deepEqual(errors, []);
-fs.mkdirSync("test-results", { recursive: true });
-await page.screenshot({ path: "test-results/arena.png" });
-const report = {
-  combat: combat.metrics,
-  final: final.metrics,
-  roundSecondsIncludingRespawn: rounds,
-  errors,
-};
-fs.writeFileSync("test-results/playtest.json", JSON.stringify(report, null, 2));
-console.log(JSON.stringify(report, null, 2));
-await browser.close();
+fs.mkdirSync('test-results',{recursive:true});
+try{
+  const duel=await client('http://127.0.0.1:5173/?mode=duel'),p=duel.page;
+  const initial=await read(p);await p.keyboard.down('KeyW');await p.waitForTimeout(200);await p.keyboard.up('KeyW');assert.notEqual((await read(p)).snapshot.fighters[0].y,initial.snapshot.fighters[0].y);
+  await p.keyboard.press('Space',{delay:30});await p.waitForTimeout(220);assert((await read(p)).metrics.dashes>0);
+  const duelRoundSeconds=await drive(p,32000),active=await read(p);assert(active.metrics.hits>10);assert(active.metrics.parries>0);assert(active.snapshot.fighters.some(f=>f.id!=='you'&&f.deaths>0),'player can kill the bot');
+  await p.waitForTimeout(14000);const idle=await read(p);assert(idle.snapshot.fighters[0].deaths>0,'bot can kill player');assert(idle.metrics.respawns>2);await p.screenshot({path:'test-results/duel.png'});await duel.context.close();
+  const first=await client('http://127.0.0.1:5173'),a=first.page;await a.waitForFunction(()=>window.__lude.snapshot.fighters.filter(f=>f.controller==='human').length===1);assert.equal((await read(a)).snapshot.fighters.length,4);
+  const second=await client('http://127.0.0.1:5173'),b=second.page;await a.waitForFunction(()=>window.__lude.snapshot.fighters.filter(f=>f.controller==='human').length===2);
+  const [s1,s2]=await Promise.all([read(a),read(b)]);assert.equal(s1.snapshot.room,s2.snapshot.room);assert.notEqual(s1.snapshot.you,s2.snapshot.you);assert(s1.snapshot.target);assert(s2.snapshot.target);assert(!('contracts'in s1.snapshot));assert(s1.snapshot.fighters.every(f=>!('target'in f)));
+  await Promise.all([drive(a,34000),drive(b,34000)]);
+  const multiplayer=await read(a);assert(multiplayer.metrics.hits>10);assert(multiplayer.metrics.deaths>0);assert(multiplayer.metrics.contracts>0);await a.screenshot({path:'test-results/multiplayer.png'});
+  const name=await a.locator('#profile').innerText();await second.context.close();await a.waitForFunction(()=>window.__lude.snapshot.fighters.filter(f=>f.controller==='human').length===1);
+  await a.reload();await a.waitForFunction(()=>window.__lude?.status==='LIVE');assert.equal((await a.locator('#profile').innerText()).split(' · ')[0],name.split(' · ')[0]);
+  const report={duelActive:active.metrics,duelAfterIdle:idle.metrics,duelRoundSeconds,multiplayer:multiplayer.metrics,room:s1.snapshot.room,twoHumans:true,botReplacement:true,reconnectedIdentity:true,errors};assert.deepEqual(errors,[]);fs.writeFileSync('test-results/playtest.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await first.context.close();
+}finally{await browser.close();}

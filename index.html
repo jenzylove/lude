@@ -1,74 +1,11 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Lude — Blade / 01</title>
-    <style>
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: #080d14;
-        color: #dce9ed;
-        font-family: Arial, sans-serif;
-      }
-      header,
-      footer {
-        max-width: 1100px;
-        margin: auto;
-        padding: 20px 26px;
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-      }
-      header strong {
-        letter-spacing: 9px;
-        font-size: 24px;
-      }
-      small,
-      footer {
-        color: #8b9eac;
-        font-size: 12px;
-        letter-spacing: 1px;
-      }
-      #game {
-        width: min(1100px, calc((100dvh - 190px) * 1.6176));
-        max-width: 100%;
-        margin: auto;
-      }
-      canvas {
-        display: block;
-        width: 100%;
-        height: auto;
-      }
-      b {
-        color: #e4eef1;
-      }
-      footer {
-        line-height: 1.9;
-        flex-wrap: wrap;
-      }
-      @media(max-height: 550px) { #game { width: 100%; } }
-    </style>
-  </head>
-  <body>
-    <header>
-      <strong>LUDE</strong
-      ><small>BLADE / 01<br />COMBAT STUDY · LOCAL DUEL</small>
-    </header>
-    <main id="game"></main>
-    <footer>
-      <span
-        ><b>WASD / ARROWS</b> move &nbsp; <b>MOUSE</b> aim &nbsp;
-        <b>CLICK / J</b> strike<br /><b>SPACE / SHIFT</b> dash &nbsp;
-        <b>E / K / RIGHT CLICK</b> parry</span
-      ><span
-        >Read the amber wind-up. Parry toward the blade.<br />Missed strikes
-        leave an opening. Death → back in 1.2s.</span
-      >
-    </footer>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#080b10"><title>Lude · Hitlist</title></head>
+<body><main id="arena-shell"><div id="game" aria-label="Lude knife combat arena"></div>
+<div id="hud">
+  <header><div class="brand">LUDE<span>HUNT. ADAPT. REPEAT.</span></div><div class="arena-title">ARENA 01<span>THE UPPER DISTRICT</span><small id="mode">HITLIST / LIVE</small></div></header>
+  <div class="session"><i></i><span id="connection">CONNECTING</span></div>
+  <aside class="contract"><div class="eyebrow">◇ YOUR CONTRACT</div><h1 id="target-name">—</h1><div id="target-kind">AI FIGHTER</div><div class="contract-line"></div><p id="target-state">ONE CONTRACT. ONE UNKNOWN HUNTER.</p><div class="reward">CONTRACT <b>+100</b><span>NO SCORE FOR OTHER KILLS</span></div></aside>
+  <div class="status"><div class="eyebrow">CONTRACT SCORE</div><strong id="score">000</strong><div class="vitals"><span>VITALS</span><span id="health-value">100 / 100</span></div><div class="health-track"><div id="health-fill"></div></div></div>
+  <div class="combat-hud"><div id="notice" aria-live="polite">READ THE WIND-UP. MAKE YOUR OPENING.</div><div class="abilities"><div id="strike" class="ability"><b>╱</b><span>BLADE <kbd>J / CLICK</kbd></span><small id="strike-time">READY</small></div><div id="dash" class="ability"><b>»</b><span>DASH <kbd>SPACE</kbd></span><small id="dash-time">READY</small></div><div id="parry" class="ability"><b>◇</b><span>PARRY <kbd>E / RMB</kbd></span><small id="parry-time">READY</small></div></div></div>
+  <footer><span id="profile">LOCAL DEVICE IDENTITY</span><nav><button id="sound">SOUND OFF</button><a id="mode-link" href="/?mode=duel">PRACTICE DUEL ↗</a></nav></footer>
+</div></main><div class="instructions"><span><b>WASD / ARROWS</b> MOVE &nbsp; <b>MOUSE</b> AIM &nbsp; <b>CLICK / J</b> STRIKE &nbsp; <b>SPACE / SHIFT</b> DASH &nbsp; <b>E / K / RIGHT CLICK</b> PARRY</span><span>AMBER = WIND-UP · BLUE = PARRY · DASH THROUGH DANGER</span></div><script type="module" src="/src/main.ts"></script></body></html>
