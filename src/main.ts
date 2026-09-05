@@ -1,24 +1,445 @@
-import Phaser from 'phaser';
+import Phaser from "phaser";
 
-type Fighter = {x:number;y:number;angle:number;hp:number;phase:string;timer:number;strikeCd:number;dashCd:number;parryCd:number;dx:number;dy:number;hit:boolean;flash:number};
-const W=1100,H=680,R=18;
-const walls=[{x:260,y:210,w:130,h:45},{x:710,y:425,w:130,h:45},{x:260,y:425,w:55,h:90},{x:785,y:165,w:55,h:90}];
-const fighter=(x:number,y:number,angle:number):Fighter=>({x,y,angle,hp:100,phase:'idle',timer:0,strikeCd:0,dashCd:0,parryCd:0,dx:0,dy:0,hit:false,flash:0});
-const diff=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
+type Fighter = {
+  x: number;
+  y: number;
+  angle: number;
+  hp: number;
+  phase: string;
+  timer: number;
+  strikeCd: number;
+  dashCd: number;
+  parryCd: number;
+  dx: number;
+  dy: number;
+  hit: boolean;
+  flash: number;
+};
+const W = 1100,
+  H = 680,
+  R = 18;
+const walls = [
+  { x: 260, y: 210, w: 130, h: 45 },
+  { x: 710, y: 425, w: 130, h: 45 },
+  { x: 260, y: 425, w: 55, h: 90 },
+  { x: 785, y: 165, w: 55, h: 90 },
+];
+const fighter = (x: number, y: number, angle: number): Fighter => ({
+  x,
+  y,
+  angle,
+  hp: 100,
+  phase: "idle",
+  timer: 0,
+  strikeCd: 0,
+  dashCd: 0,
+  parryCd: 0,
+  dx: 0,
+  dy: 0,
+  hit: false,
+  flash: 0,
+});
+const diff = (a: number, b: number) =>
+  Math.atan2(Math.sin(a - b), Math.cos(a - b));
 class Arena extends Phaser.Scene {
- p=fighter(450,340,0); b=fighter(650,340,Math.PI); g!:Phaser.GameObjects.Graphics; hud!:Phaser.GameObjects.Text; note!:Phaser.GameObjects.Text; keys!:Record<string,Phaser.Input.Keyboard.Key>; clock=0; stop=0; respawn=0; round=1; brain=0; orbit=1; message='CLOSE THE DISTANCE'; messageTime=2; aim=false;
- metrics={hits:0,parries:0,dashes:0,botDashes:0,botParries:0,playerDeaths:0,botDeaths:0,rounds:0};
- create(){this.g=this.add.graphics();this.hud=this.add.text(38,25,'',{fontFamily:'monospace',fontSize:'15px',color:'#dce9ed'});this.note=this.add.text(W/2,610,'',{fontFamily:'monospace',fontSize:'16px',color:'#e2e9ed'}).setOrigin(.5);this.keys=this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,E,K,J') as typeof this.keys;this.input.mouse!.disableContextMenu();this.input.on('pointermove',()=>this.aim=true);this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>this.action(this.p,p.rightButtonDown()?'parry':'strike'));window.addEventListener('blur',()=>this.input.keyboard!.resetKeys()); if(import.meta.env.DEV)(window as any).__arena=this;}
- say(s:string){this.message=s;this.messageTime=1.1;}
- action(f:Fighter,kind:string){if(this.respawn||f.hp<=0||f.phase!=='idle')return false;if(kind==='strike'&&f.strikeCd<=0){f.phase='wind';f.timer=.19;f.hit=false;f.strikeCd=.65;return true;}if(kind==='parry'&&f.parryCd<=0){f.phase='parry';f.timer=.22;f.parryCd=.85;if(f===this.b)this.metrics.botParries++;return true;}if(kind==='dash'&&f.dashCd<=0){f.phase='dash';f.timer=.14;f.dashCd=1.15;if(!f.dx&&!f.dy){f.dx=Math.cos(f.angle);f.dy=Math.sin(f.angle);}if(f===this.p)this.metrics.dashes++;else this.metrics.botDashes++;return true;}return false;}
- blocked(x:number,y:number){return x<50+R||x>1050-R||y<110+R||y>565-R||walls.some(w=>x>w.x-R&&x<w.x+w.w+R&&y>w.y-R&&y<w.y+w.h+R);}
- move(f:Fighter,dx:number,dy:number){if(!this.blocked(f.x+dx,f.y))f.x+=dx;if(!this.blocked(f.x,f.y+dy))f.y+=dy;}
- los(a:Fighter,b:Fighter){for(let i=1;i<20;i++){let t=i/20;if(walls.some(w=>a.x+(b.x-a.x)*t>w.x&&a.x+(b.x-a.x)*t<w.x+w.w&&a.y+(b.y-a.y)*t>w.y&&a.y+(b.y-a.y)*t<w.y+w.h))return false;}return true;}
- hit(a:Fighter,b:Fighter){if(a.hit||b.hp<=0)return;let angle=Math.atan2(b.y-a.y,b.x-a.x);if(Math.hypot(b.x-a.x,b.y-a.y)>91||Math.abs(diff(angle,a.angle))>.95||!this.los(a,b)||b.phase==='dash')return;a.hit=true;if(b.phase==='parry'&&Math.abs(diff(angle+Math.PI,b.angle))<1.15){a.phase='stun';a.timer=.55;b.phase='idle';b.strikeCd=0;this.metrics.parries++;this.say('PARRY — PUNISH THE OPENING');this.stop=.065;return;}b.hp=Math.max(0,b.hp-25);b.flash=.14;b.phase='stun';b.timer=.18;this.move(b,Math.cos(angle)*19,Math.sin(angle)*19);this.metrics.hits++;this.stop=.045;this.cameras.main.shake(85,.002);if(!b.hp){this.respawn=1.2;this.metrics[b===this.p?'playerDeaths':'botDeaths']++;this.say(b===this.p?'YOU FELL · GO AGAIN':'AI DOWN · GO AGAIN');}}
- step(f:Fighter,other:Fighter,dt:number){f.strikeCd-=dt;f.dashCd-=dt;f.parryCd-=dt;f.flash-=dt;f.timer-=dt;if(f.phase==='wind'&&f.timer<=0){f.phase='swing';f.timer=.11;}if(f.phase==='swing'){this.hit(f,other);if(f.timer<=0){f.phase='recover';f.timer=.25;}}else if(f.timer<=0&&f.phase!=='idle'){f.phase=f.phase==='parry'?'recover':'idle';f.timer=.17;}let speed=f.phase==='dash'?710:f.phase==='idle'||f.phase==='parry'?235:f.phase==='wind'?100:45;if(f.phase!=='stun')this.move(f,f.dx*speed*dt,f.dy*speed*dt);}
- ai(dt:number){let b=this.b,p=this.p,dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx);if(b.phase==='idle')b.angle=a;if(b.phase==='dash')return;let radial=d>82?1:d<62?-.7:0;let tx=Math.cos(a)*radial-Math.sin(a)*this.orbit*.5,ty=Math.sin(a)*radial+Math.cos(a)*this.orbit*.5;if(this.blocked(b.x+tx*30,b.y+ty*30)){tx=-Math.sin(a)*this.orbit;ty=Math.cos(a)*this.orbit;if(this.blocked(b.x+tx*30,b.y+ty*30))this.orbit*=-1;}let len=Math.hypot(tx,ty)||1;b.dx=tx/len;b.dy=ty/len;this.brain-=dt;if(this.brain>0)return;this.brain=.15+Math.random()*.1;if(p.phase==='wind'&&p.timer<.09&&d<110&&Math.random()<.65){if(Math.random()<.65)this.action(b,'parry');else{b.dx=-Math.cos(a);b.dy=-Math.sin(a);this.action(b,'dash');}}else if(d<88&&this.los(b,p)&&Math.random()<.8)this.action(b,'strike');else if(d>180&&Math.random()<.14)this.action(b,'dash');}
- update(_t:number,delta:number){let dt=Math.min(delta/1000,.033);this.clock+=dt;this.messageTime-=dt;if(this.stop>0){this.stop-=dt;this.draw();return;}if(this.respawn>0){this.respawn-=dt;if(this.respawn<=0){this.p=fighter(450,340,0);this.b=fighter(650,340,Math.PI);this.round++;this.metrics.rounds++;this.say('ROUND '+this.round+' · BLADES READY');}this.draw();return;}let p=this.p,k=this.keys;let x=Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),y=Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown),len=Math.hypot(x,y)||1;if(p.phase!=='dash'){p.dx=x/len;p.dy=y/len;}if(p.phase==='idle'){if(this.aim){let ptr=this.input.activePointer;p.angle=Math.atan2(ptr.y-p.y,ptr.x-p.x);}else if(x||y)p.angle=Math.atan2(y,x);}if(Phaser.Input.Keyboard.JustDown(k.J))this.action(p,'strike');if(Phaser.Input.Keyboard.JustDown(k.E)||Phaser.Input.Keyboard.JustDown(k.K))this.action(p,'parry');if(Phaser.Input.Keyboard.JustDown(k.SPACE)||Phaser.Input.Keyboard.JustDown(k.SHIFT))this.action(p,'dash');this.ai(dt);this.step(p,this.b,dt);if(!this.respawn)this.step(this.b,p,dt);let d=Math.hypot(p.x-this.b.x,p.y-this.b.y);if(d<36&&d>0){let nx=(p.x-this.b.x)/d,ny=(p.y-this.b.y)/d;this.move(p,nx*(36-d)/2,ny*(36-d)/2);this.move(this.b,-nx*(36-d)/2,-ny*(36-d)/2);}this.draw();}
- draw(){let g=this.g;g.clear();g.fillStyle(0x0b121c);g.fillRect(0,0,W,H);g.lineStyle(1,0x172432);for(let x=50;x<=1050;x+=50)g.lineBetween(x,110,x,565);for(let y=115;y<=565;y+=50)g.lineBetween(50,y,1050,y);g.lineStyle(2,0x354752);g.strokeRect(50,110,1000,455);g.lineStyle(1,0x20303c);g.strokeCircle(550,340,132);for(let w of walls){g.fillStyle(0x05090e);g.fillRect(w.x+8,w.y+10,w.w,w.h);g.fillStyle(0x263540);g.fillRect(w.x,w.y,w.w,w.h);g.lineStyle(2,0x57707a);g.lineBetween(w.x,w.y,w.x+w.w,w.y);}this.person(this.p,0x77f7da);this.person(this.b,0xff737d);this.hud.setText(`YOU  ${'━'.repeat(Math.ceil(this.p.hp/25))}${'·'.repeat(4-Math.ceil(this.p.hp/25))}                                            AI / KESTREL  ${this.b.hp}\n\nROUND ${String(this.round).padStart(2,'0')}       ONE BLADE. EVERY OPENING COUNTS.`);this.note.setText(this.messageTime>0?this.message:'BAIT THE STRIKE. STEP OUT. STRIKE BACK.');let labels=[['STRIKE / J',this.p.strikeCd,.65],['DASH / SPACE',this.p.dashCd,1.15],['PARRY / E',this.p.parryCd,.85]] as const;labels.forEach((v,i)=>{let x=355+i*145;g.fillStyle(0x263641);g.fillRect(x,650,120,3);g.fillStyle(0x77f7da);g.fillRect(x,650,120*(1-Phaser.Math.Clamp(v[1]/v[2],0,1)),3);});}
- person(f:Fighter,color:number){let g=this.g;if(!f.hp){g.lineStyle(2,color,.4);g.strokeCircle(f.x,f.y,34);return;}g.fillStyle(0x000000,.45);g.fillEllipse(f.x+3,f.y+10,42,24);if(f.phase==='dash'){g.lineStyle(10,color,.25);g.lineBetween(f.x-f.dx*60,f.y-f.dy*60,f.x,f.y);}if(f.phase==='wind'||f.phase==='swing'){g.lineStyle(f.phase==='swing'?10:2,f.phase==='wind'?0xffcd70:color,.8);g.beginPath();g.arc(f.x,f.y,75,f.angle-.85,f.angle+.85);g.strokePath();}if(f.phase==='parry'){g.lineStyle(5,0xc7edff);g.beginPath();g.arc(f.x,f.y,31,f.angle-1.15,f.angle+1.15);g.strokePath();}g.fillStyle(f.flash>0?0xffffff:color);let a=f.angle;g.fillTriangle(f.x+Math.cos(a)*22,f.y+Math.sin(a)*22,f.x+Math.cos(a+2.3)*18,f.y+Math.sin(a+2.3)*18,f.x+Math.cos(a-2.3)*18,f.y+Math.sin(a-2.3)*18);g.fillStyle(0x17222b);g.fillCircle(f.x,f.y,8);g.lineStyle(3,0xe5edf0);g.lineBetween(f.x+Math.cos(a+.6)*17,f.y+Math.sin(a+.6)*17,f.x+Math.cos(a)*43,f.y+Math.sin(a)*43);g.fillStyle(0x293641);g.fillRect(f.x-22,f.y-36,44,4);g.fillStyle(color);g.fillRect(f.x-22,f.y-36,44*f.hp/100,4);}
+  p = fighter(450, 340, 0);
+  b = fighter(650, 340, Math.PI);
+  g!: Phaser.GameObjects.Graphics;
+  hud!: Phaser.GameObjects.Text;
+  note!: Phaser.GameObjects.Text;
+  keys!: Record<string, Phaser.Input.Keyboard.Key>;
+  clock = 0;
+  stop = 0;
+  respawn = 0;
+  round = 1;
+  brain = 0;
+  orbit = 1;
+  message = "CLOSE THE DISTANCE";
+  messageTime = 2;
+  aim = false;
+  metrics = {
+    hits: 0,
+    parries: 0,
+    dashes: 0,
+    botDashes: 0,
+    botParries: 0,
+    playerDeaths: 0,
+    botDeaths: 0,
+    rounds: 0,
+  };
+  create() {
+    this.g = this.add.graphics();
+    this.hud = this.add.text(38, 25, "", {
+      fontFamily: "monospace",
+      fontSize: "15px",
+      color: "#dce9ed",
+    });
+    this.note = this.add
+      .text(W / 2, 610, "", {
+        fontFamily: "monospace",
+        fontSize: "16px",
+        color: "#e2e9ed",
+      })
+      .setOrigin(0.5);
+    this.keys = this.input.keyboard!.addKeys(
+      "W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,E,K,J",
+    ) as typeof this.keys;
+    ["STRIKE / J", "DASH / SPACE", "PARRY / E"].forEach((label, i) => {
+      this.add.text(355 + i * 145, 631, label, {
+        fontFamily: "monospace", fontSize: "12px", color: "#9fbbc5",
+      });
+    });
+    this.input.mouse!.disableContextMenu();
+    this.input.on("pointermove", () => (this.aim = true));
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) =>
+      this.action(this.p, p.rightButtonDown() ? "parry" : "strike"),
+    );
+    window.addEventListener("blur", () => this.input.keyboard!.resetKeys());
+    if (import.meta.env.DEV) (window as any).__arena = this;
+  }
+  say(s: string) {
+    this.message = s;
+    this.messageTime = 1.1;
+  }
+  action(f: Fighter, kind: string) {
+    if (this.respawn > 0 || f.hp <= 0 || f.phase !== "idle") return false;
+    if (kind === "strike" && f.strikeCd <= 0) {
+      f.phase = "wind";
+      f.timer = 0.19;
+      f.hit = false;
+      f.strikeCd = 0.65;
+      return true;
+    }
+    if (kind === "parry" && f.parryCd <= 0) {
+      f.phase = "parry";
+      f.timer = 0.22;
+      f.parryCd = 0.85;
+      if (f === this.b) this.metrics.botParries++;
+      return true;
+    }
+    if (kind === "dash" && f.dashCd <= 0) {
+      f.phase = "dash";
+      f.timer = 0.14;
+      f.dashCd = 1.15;
+      if (!f.dx && !f.dy) {
+        f.dx = Math.cos(f.angle);
+        f.dy = Math.sin(f.angle);
+      }
+      if (f === this.p) this.metrics.dashes++;
+      else this.metrics.botDashes++;
+      return true;
+    }
+    return false;
+  }
+  blocked(x: number, y: number) {
+    return (
+      x < 50 + R ||
+      x > 1050 - R ||
+      y < 110 + R ||
+      y > 565 - R ||
+      walls.some(
+        (w) =>
+          x > w.x - R && x < w.x + w.w + R && y > w.y - R && y < w.y + w.h + R,
+      )
+    );
+  }
+  move(f: Fighter, dx: number, dy: number) {
+    if (!this.blocked(f.x + dx, f.y)) f.x += dx;
+    if (!this.blocked(f.x, f.y + dy)) f.y += dy;
+  }
+  los(a: Fighter, b: Fighter) {
+    for (let i = 1; i < 20; i++) {
+      let t = i / 20;
+      if (
+        walls.some(
+          (w) =>
+            a.x + (b.x - a.x) * t > w.x &&
+            a.x + (b.x - a.x) * t < w.x + w.w &&
+            a.y + (b.y - a.y) * t > w.y &&
+            a.y + (b.y - a.y) * t < w.y + w.h,
+        )
+      )
+        return false;
+    }
+    return true;
+  }
+  hit(a: Fighter, b: Fighter) {
+    if (a.hit || b.hp <= 0) return;
+    let angle = Math.atan2(b.y - a.y, b.x - a.x);
+    if (
+      Math.hypot(b.x - a.x, b.y - a.y) > 91 ||
+      Math.abs(diff(angle, a.angle)) > 0.95 ||
+      !this.los(a, b) ||
+      b.phase === "dash"
+    )
+      return;
+    a.hit = true;
+    if (
+      b.phase === "parry" &&
+      Math.abs(diff(angle + Math.PI, b.angle)) < 1.15
+    ) {
+      a.phase = "stun";
+      a.timer = 0.55;
+      b.phase = "idle";
+      b.strikeCd = 0;
+      this.metrics.parries++;
+      this.say("PARRY — PUNISH THE OPENING");
+      this.stop = 0.065;
+      return;
+    }
+    b.hp = Math.max(0, b.hp - 25);
+    b.flash = 0.14;
+    b.phase = "stun";
+    b.timer = 0.18;
+    this.move(b, Math.cos(angle) * 19, Math.sin(angle) * 19);
+    this.metrics.hits++;
+    this.stop = 0.045;
+    this.cameras.main.shake(85, 0.002);
+    if (!b.hp) {
+      this.respawn = 1.2;
+      this.metrics[b === this.p ? "playerDeaths" : "botDeaths"]++;
+      this.say(b === this.p ? "YOU FELL · GO AGAIN" : "AI DOWN · GO AGAIN");
+    }
+  }
+  step(f: Fighter, other: Fighter, dt: number) {
+    f.strikeCd -= dt;
+    f.dashCd -= dt;
+    f.parryCd -= dt;
+    f.flash -= dt;
+    f.timer -= dt;
+    if (f.phase === "wind" && f.timer <= 0) {
+      f.phase = "swing";
+      f.timer = 0.11;
+    }
+    if (f.phase === "swing") {
+      this.hit(f, other);
+      if (f.timer <= 0) {
+        f.phase = "recover";
+        f.timer = 0.25;
+      }
+    } else if (f.timer <= 0 && f.phase !== "idle") {
+      f.phase = f.phase === "parry" ? "recover" : "idle";
+      f.timer = 0.17;
+    }
+    let speed =
+      f.phase === "dash"
+        ? 710
+        : f.phase === "idle" || f.phase === "parry"
+          ? 235
+          : f.phase === "wind"
+            ? 100
+            : 45;
+    if (f.phase !== "stun") this.move(f, f.dx * speed * dt, f.dy * speed * dt);
+  }
+  ai(dt: number) {
+    let b = this.b,
+      p = this.p,
+      dx = p.x - b.x,
+      dy = p.y - b.y,
+      d = Math.hypot(dx, dy),
+      a = Math.atan2(dy, dx);
+    if (b.phase === "idle") b.angle = a;
+    if (b.phase === "dash") return;
+    let radial = d > 82 ? 1 : d < 62 ? -0.7 : 0;
+    let tx = Math.cos(a) * radial - Math.sin(a) * this.orbit * 0.5,
+      ty = Math.sin(a) * radial + Math.cos(a) * this.orbit * 0.5;
+    if (this.blocked(b.x + tx * 30, b.y + ty * 30)) {
+      tx = -Math.sin(a) * this.orbit;
+      ty = Math.cos(a) * this.orbit;
+      if (this.blocked(b.x + tx * 30, b.y + ty * 30)) this.orbit *= -1;
+    }
+    let len = Math.hypot(tx, ty) || 1;
+    b.dx = tx / len;
+    b.dy = ty / len;
+    this.brain -= dt;
+    if (this.brain > 0) return;
+    this.brain = 0.15 + Math.random() * 0.1;
+    if (
+      p.phase === "wind" &&
+      p.timer < 0.09 &&
+      d < 110 &&
+      Math.random() < 0.65
+    ) {
+      if (Math.random() < 0.65) this.action(b, "parry");
+      else {
+        b.dx = -Math.cos(a);
+        b.dy = -Math.sin(a);
+        this.action(b, "dash");
+      }
+    } else if (d < 88 && this.los(b, p) && Math.random() < 0.8)
+      this.action(b, "strike");
+    else if (d > 180 && Math.random() < 0.14) this.action(b, "dash");
+  }
+  update(_t: number, delta: number) {
+    let dt = Math.min(delta / 1000, 0.033);
+    this.clock += dt;
+    this.messageTime -= dt;
+    if (this.stop > 0) {
+      this.stop -= dt;
+      this.draw();
+      return;
+    }
+    if (this.respawn > 0) {
+      this.respawn -= dt;
+      if (this.respawn <= 0) {
+        this.respawn = 0;
+        this.p = fighter(450, 340, 0);
+        this.b = fighter(650, 340, Math.PI);
+        this.round++;
+        this.metrics.rounds++;
+        this.say("ROUND " + this.round + " · BLADES READY");
+      }
+      this.draw();
+      return;
+    }
+    let p = this.p,
+      k = this.keys;
+    let x =
+        Number(k.D.isDown || k.RIGHT.isDown) -
+        Number(k.A.isDown || k.LEFT.isDown),
+      y =
+        Number(k.S.isDown || k.DOWN.isDown) - Number(k.W.isDown || k.UP.isDown),
+      len = Math.hypot(x, y) || 1;
+    if (p.phase !== "dash") {
+      p.dx = x / len;
+      p.dy = y / len;
+    }
+    if (p.phase === "idle") {
+      if (this.aim) {
+        let ptr = this.input.activePointer;
+        p.angle = Math.atan2(ptr.y - p.y, ptr.x - p.x);
+      } else if (x || y) p.angle = Math.atan2(y, x);
+    }
+    if (Phaser.Input.Keyboard.JustDown(k.J)) this.action(p, "strike");
+    if (
+      Phaser.Input.Keyboard.JustDown(k.E) ||
+      Phaser.Input.Keyboard.JustDown(k.K)
+    )
+      this.action(p, "parry");
+    if (
+      Phaser.Input.Keyboard.JustDown(k.SPACE) ||
+      Phaser.Input.Keyboard.JustDown(k.SHIFT)
+    )
+      this.action(p, "dash");
+    this.ai(dt);
+    this.step(p, this.b, dt);
+    if (this.respawn <= 0) this.step(this.b, p, dt);
+    let d = Math.hypot(p.x - this.b.x, p.y - this.b.y);
+    if (d < 36 && d > 0) {
+      let nx = (p.x - this.b.x) / d,
+        ny = (p.y - this.b.y) / d;
+      this.move(p, (nx * (36 - d)) / 2, (ny * (36 - d)) / 2);
+      this.move(this.b, (-nx * (36 - d)) / 2, (-ny * (36 - d)) / 2);
+    }
+    this.draw();
+  }
+  draw() {
+    let g = this.g;
+    g.clear();
+    g.fillStyle(0x0b121c);
+    g.fillRect(0, 0, W, H);
+    g.lineStyle(1, 0x172432);
+    for (let x = 50; x <= 1050; x += 50) g.lineBetween(x, 110, x, 565);
+    for (let y = 115; y <= 565; y += 50) g.lineBetween(50, y, 1050, y);
+    g.lineStyle(2, 0x354752);
+    g.strokeRect(50, 110, 1000, 455);
+    g.lineStyle(1, 0x20303c);
+    g.strokeCircle(550, 340, 132);
+    for (let w of walls) {
+      g.fillStyle(0x05090e);
+      g.fillRect(w.x + 8, w.y + 10, w.w, w.h);
+      g.fillStyle(0x263540);
+      g.fillRect(w.x, w.y, w.w, w.h);
+      g.lineStyle(2, 0x57707a);
+      g.lineBetween(w.x, w.y, w.x + w.w, w.y);
+    }
+    this.person(this.p, 0x77f7da);
+    this.person(this.b, 0xff737d);
+    this.hud.setText(
+      `YOU  ${"━".repeat(Math.ceil(this.p.hp / 25))}${"·".repeat(4 - Math.ceil(this.p.hp / 25))}                                            AI / KESTREL  ${this.b.hp}\n\nROUND ${String(this.round).padStart(2, "0")}       ONE BLADE. EVERY OPENING COUNTS.`,
+    );
+    this.note.setText(
+      this.messageTime > 0
+        ? this.message
+        : "BAIT THE STRIKE. STEP OUT. STRIKE BACK.",
+    );
+    let labels = [
+      ["STRIKE / J", this.p.strikeCd, 0.65],
+      ["DASH / SPACE", this.p.dashCd, 1.15],
+      ["PARRY / E", this.p.parryCd, 0.85],
+    ] as const;
+    labels.forEach((v, i) => {
+      let x = 355 + i * 145;
+      g.fillStyle(0x263641);
+      g.fillRect(x, 650, 120, 3);
+      g.fillStyle(0x77f7da);
+      g.fillRect(x, 650, 120 * (1 - Phaser.Math.Clamp(v[1] / v[2], 0, 1)), 3);
+    });
+  }
+  person(f: Fighter, color: number) {
+    let g = this.g;
+    if (!f.hp) {
+      g.lineStyle(2, color, 0.4);
+      g.strokeCircle(f.x, f.y, 34);
+      return;
+    }
+    g.fillStyle(0x000000, 0.45);
+    g.fillEllipse(f.x + 3, f.y + 10, 42, 24);
+    if (f.phase === "dash") {
+      g.lineStyle(10, color, 0.25);
+      g.lineBetween(f.x - f.dx * 60, f.y - f.dy * 60, f.x, f.y);
+    }
+    if (f.phase === "wind" || f.phase === "swing") {
+      g.lineStyle(
+        f.phase === "swing" ? 10 : 2,
+        f.phase === "wind" ? 0xffcd70 : color,
+        0.8,
+      );
+      g.beginPath();
+      g.arc(f.x, f.y, 75, f.angle - 0.85, f.angle + 0.85);
+      g.strokePath();
+    }
+    if (f.phase === "parry") {
+      g.lineStyle(5, 0xc7edff);
+      g.beginPath();
+      g.arc(f.x, f.y, 31, f.angle - 1.15, f.angle + 1.15);
+      g.strokePath();
+    }
+    g.fillStyle(f.flash > 0 ? 0xffffff : color);
+    let a = f.angle;
+    g.fillTriangle(
+      f.x + Math.cos(a) * 22,
+      f.y + Math.sin(a) * 22,
+      f.x + Math.cos(a + 2.3) * 18,
+      f.y + Math.sin(a + 2.3) * 18,
+      f.x + Math.cos(a - 2.3) * 18,
+      f.y + Math.sin(a - 2.3) * 18,
+    );
+    g.fillStyle(0x17222b);
+    g.fillCircle(f.x, f.y, 8);
+    g.lineStyle(3, 0xe5edf0);
+    g.lineBetween(
+      f.x + Math.cos(a + 0.6) * 17,
+      f.y + Math.sin(a + 0.6) * 17,
+      f.x + Math.cos(a) * 43,
+      f.y + Math.sin(a) * 43,
+    );
+    g.fillStyle(0x293641);
+    g.fillRect(f.x - 22, f.y - 36, 44, 4);
+    g.fillStyle(color);
+    g.fillRect(f.x - 22, f.y - 36, (44 * f.hp) / 100, 4);
+  }
 }
-new Phaser.Game({type:Phaser.AUTO,width:W,height:H,parent:'game',backgroundColor:'#0b121c',scene:Arena,scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_HORIZONTALLY},render:{antialias:true}});
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: W,
+  height: H,
+  parent: "game",
+  backgroundColor: "#0b121c",
+  scene: Arena,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
+  },
+  render: { antialias: true },
+});
